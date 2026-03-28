@@ -1,0 +1,22 @@
+.DS_Store
+
+# Editors
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+
+# Temp and logs
+*.log
+tmp/
+temp/
+
+# Local scrape or generated working data
+sources/
+dist/
+build/

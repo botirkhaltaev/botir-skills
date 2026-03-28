@@ -1,10 +1,8 @@
 # rust-performance
 
-Distilled Rust optimization guidance for agent workflows, based on The Rust Performance Book.
+Distilled Rust optimization guidance for agents, based on The Rust Performance Book.
 
-## What This Skill Does
-
-This skill helps an agent diagnose and improve Rust performance with a measurement-first workflow. It focuses on:
+## Covers
 
 - runtime speed
 - memory use and allocation churn
@@ -12,62 +10,42 @@ This skill helps an agent diagnose and improve Rust performance with a measureme
 - compile times
 - Rust-specific hotspots such as hashing, iterators, I/O, logging, and synchronization
 
-The skill is deliberately distilled. It does not mirror the book chapter-by-chapter. Instead, it groups the book into task-oriented references that are faster for an agent to use during optimization work.
+This skill is organized for agent use, not as a chapter-by-chapter mirror.
 
 ## Install
 
-From the multi-skill repo:
-
 ```bash
-npx skills add <your-user>/botir-skills --skill rust-performance
+npx skills add botirk38/botir-skills --skill rust-performance
 ```
 
-To inspect all skills in the repo:
+List all skills in the repo:
 
 ```bash
-npx skills add <your-user>/botir-skills --list
+npx skills add botirk38/botir-skills --list
 ```
 
-## Reference Layout
+## Files
 
-- `SKILL.md` - activation criteria, triage workflow, guardrails
+- `SKILL.md` - trigger criteria, triage flow, and guardrails
 - `references/measurement.md` - benchmarking and profiling
-- `references/build-configuration.md` - build and profile tuning
+- `references/build-configuration.md` - Cargo profile and codegen tuning
 - `references/allocations-layout.md` - allocations, type size, layout, wrappers
-- `references/collections-iterators.md` - std collection and iterator costs
-- `references/io-debugging.md` - I/O, logging, and debugging overhead
+- `references/collections-iterators.md` - iterators, std types, hashing
+- `references/io-debugging.md` - buffering, logging, assertions, line handling
 - `references/parallelism.md` - concurrency and synchronization trade-offs
-- `references/compile-times.md` - build speed diagnosis and fixes
-- `references/general-principles.md` - optimization mindset and rules of thumb
+- `references/compile-times.md` - timings, macros, monomorphization, linkers
+- `references/general-principles.md` - optimization mindset and guardrails
 
-## Source and Attribution
+## Source
 
-This skill is derived from:
-
-- The Rust Performance Book
+- Upstream: The Rust Performance Book
 - Author: Nicholas Nethercote and contributors
-- Source: `https://github.com/nnethercote/perf-book`
+- Source repo: `https://github.com/nnethercote/perf-book`
+- License: `MIT OR Apache-2.0`
 
-The upstream book is dual-licensed under `MIT OR Apache-2.0`. This repository carries those licenses at the repo root. This skill is a distilled derivative, not a verbatim mirror.
+This skill was distilled from the full published book corpus defined by upstream `src/SUMMARY.md`. The raw scrape was used during authoring and then removed from this repo.
 
-## Distillation Policy
-
-- The complete published book corpus was scraped from upstream `src/SUMMARY.md` and every Markdown chapter it references.
-- The raw scraped sources were used to produce this skill, then removed from the working repo after distillation.
-- Content here is reorganized for agent usability and token efficiency.
-
-## Maintenance
-
-When updating this skill from upstream:
-
-1. Fetch `src/SUMMARY.md`
-2. Fetch every chapter linked from it
-3. Re-distill into the existing reference bundles
-4. Preserve attribution and license files
-
-## Good Fit
-
-Use this skill when a user asks for help with:
+## Best Use Cases
 
 - profiling slow Rust code
 - reducing allocations
