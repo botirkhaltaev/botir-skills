@@ -5,7 +5,7 @@ description: Diagnose and improve Rust runtime speed, memory use, binary size, a
 
 # Rust Performance
 
-Use this skill for Rust optimization work that needs disciplined measurement, targeted changes, and explicit trade-offs.
+Use this skill for Rust optimization work that needs disciplined measurement, targeted changes, and explicit trade-offs, following the methodologies from The Rust Performance Book.
 
 ## When to Use This Skill
 
@@ -112,6 +112,60 @@ Start with `references/parallelism.md`.
 - Call out trade-offs in speed, memory, compile time, debuggability, portability, and clarity.
 - Keep non-obvious optimizations documented with the reason they help.
 
+## Key Techniques from The Rust Performance Book
+
+### Measurement First
+
+Always establish a baseline before making changes:
+- Use criterion.rs for statistical benchmarking
+- Profile with tools like perf, Valgrind, or VTune
+- Measure in `--release` mode for runtime conclusions
+- Use wall-time, cycles, or instruction counts as appropriate
+
+### Build Configuration
+
+Optimize Cargo.toml profiles:
+```toml
+[profile.release]
+opt-level = 3
+lto = "thin"        # or "fat" for maximum optimization
+codegen-units = 1   # Better optimization, slower builds
+incremental = false # Faster release builds
+debuginfo = 0       # Strip debug info for smaller binaries
+panic = "abort"     # Smaller binaries, faster unwinding
+```
+
+### Memory Optimization
+
+- Reuse buffers and allocations
+- Prefer stack allocation when possible
+- Use object pools for frequent allocations
+- Minimize copying with slices and references
+- Consider custom allocators for specific workloads
+
+### Binary Size Reduction
+
+- Use `panic = "abort"` in Cargo.toml
+- Enable LTO (Link Time Optimization)
+- Strip symbols with `strip` or `sstrip`
+- Remove unused dependencies with `cargo tree`
+- Use `#![no_std]` when appropriate for embedded
+
+### Compile Time Optimization
+
+- Reduce monomorphization with trait objects
+- Limit generic code in hot paths
+- Use incremental compilation during development
+- Optimize build scripts and procedural macros
+- Consider splitting large crates
+
+### CPU-Specific Optimizations
+
+- Target specific CPU architectures: `RUSTFLAGS="-C target-cpu=native"`
+- Enable SIMD with portable packed simd or platform intrinsics
+- Profile-guided optimization (PGO) for hot paths
+- Consider allocator tuning for your workload
+
 ## Practical Defaults
 
 - For runtime work: benchmark, profile, then optimize the hottest path.
@@ -119,3 +173,34 @@ Start with `references/parallelism.md`.
 - For build work: fix link/debuginfo/profile settings before rewriting code.
 - For container or CLI size work: review profile settings, `panic = "abort"`, and stripping.
 - For synchronization concerns: benchmark the actual primitive and contention pattern instead of assuming.
+
+## Edition Migration
+
+When migrating between Rust editions, some patterns may require changes:
+
+### 2021 Edition
+
+Key changes from 2018:
+- `or_patterns` now default: `match x { Some(1) | Some(2) => ... }`
+- Improved disjoint capture in closures: `|| { self.x += 1; }`
+- Reserve syntax for type aliases: `type Result<T> = std::result::Result<T, Error>;`
+
+### Migrating Editions
+
+```bash
+# Check what needs to change
+cargo fix --edition
+
+# Perform migration
+cargo fix --edition 2021
+
+# Update Cargo.toml
+[package]
+edition = "2021"
+```
+
+### Performance Considerations
+
+- Newer editions often have better optimized code paths
+- 2021 edition may improve compile times for some patterns
+- Test thoroughly after migration
