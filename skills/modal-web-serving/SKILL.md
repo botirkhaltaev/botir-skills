@@ -122,6 +122,46 @@ def endpoint():
     return StreamingResponse(gpu_work.remote_gen(), media_type="text/event-stream")
 ```
 
+## Authentication
+
+### Proxy auth (token-based)
+
+```python
+@app.function()
+@modal.fastapi_endpoint(requires_proxy_auth=True)
+def secure_endpoint():
+    return {"status": "authenticated"}
+```
+
+Requests must include `Modal-Key` and `Modal-Secret` headers (workspace token).
+
+### Custom domains
+
+```python
+@app.function()
+@modal.fastapi_endpoint(custom_domains=["api.example.com"])
+def my_api():
+    return {"hello": "world"}
+```
+
+Configure DNS CNAME to `modal.run`. SSL provisioned automatically.
+
+### Labels
+
+Control the endpoint URL with `label`:
+
+```python
+@modal.fastapi_endpoint(label="my-api")
+# URL: https://<workspace>--my-api.modal.run
+```
+
+## Timeouts
+
+Web Function request timeout is 150 seconds by default. For long-running requests:
+- Use streaming to keep the connection alive
+- For >150s work, use `.spawn()` + polling pattern
+- Webhooks have their own timeout configuration
+
 ## Symptom Triage
 
 ### "Endpoint returns 500"
@@ -137,6 +177,10 @@ def endpoint():
 - Use `media_type="text/event-stream"` for SSE
 - Other content types may be buffered by the web server
 
+### "Request times out"
+- Default web timeout is 150s; use streaming for long responses
+- For heavy processing, use `.spawn()` + polling pattern
+
 ## Reference Map
 
 - `references/web-endpoints.md` — endpoint decorators, methods, POST/GET, Pydantic
@@ -150,3 +194,5 @@ def endpoint():
 - Web Functions autoscale and scale to zero like regular Functions
 - Use `modal serve` for development (live-reload), `modal deploy` for production
 - `@modal.web_endpoint` is the old name; use `@modal.fastapi_endpoint` (v0.73.82+)
+- `requires_proxy_auth=True` adds token-based auth; not a substitute for user auth
+- Web request timeout is 150s — use streaming or async patterns for longer work

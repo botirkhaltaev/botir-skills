@@ -95,10 +95,25 @@ Options: `us-east` (default), `us-west`, `eu-west`, `ap-south`.
 
 ## Container Networking
 
-- Containers in the same App cannot directly connect to each other by IP
+- Containers in the same App cannot directly connect to each other by IP (except in clusters)
 - Use Volumes, Dicts, or Queues for inter-Function communication
 - External network access is available by default
 - DNS resolution works normally
+
+### Cluster Networking (Multi-Node)
+
+Within `@modal.experimental.clustered` workloads:
+- Nodes get unique IPv6 addresses on a shared 50 Gbps i6pn network
+- RDMA available at 3200 Gbps when `rdma=True`
+- Access peer IPs via `modal.experimental.get_cluster_info().container_ips`
+- Designed for distributed training (e.g., PyTorch DDP, DeepSpeed)
+
+### Private Networking
+
+For connecting to VPCs or on-premise networks:
+- Use Proxies with WireGuard tunnels
+- Configure proxy with your VPN/gateway IP
+- All container traffic routes through the secure tunnel
 
 ## Symptom Triage
 

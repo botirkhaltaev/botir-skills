@@ -96,6 +96,21 @@ modal.Image.from_gcp_artifact_registry("us-docker.pkg.dev/project/repo/image:tag
 modal.Image.from_aws_ecr("123456789.dkr.ecr.us-east-1.amazonaws.com/my-image:tag")
 ```
 
+### Private registries with secrets
+
+```python
+modal.Image.from_registry(
+    "my-registry.example.com/my-image:latest",
+    secret=modal.Secret.from_name("registry-creds"),  # REGISTRY_USERNAME, REGISTRY_PASSWORD
+)
+```
+
+### eStargz Fast Pull
+
+Modal pulls only the layers needed for cold start using eStargz lazy loading. This happens automatically for images built with Modal. For `from_registry` images, Modal converts to eStargz on first pull — subsequent pulls are fast.
+
+Use `force_build=True` on any image method to skip cache and rebuild.
+
 ## Symptom Triage
 
 ### "Module not found" in container

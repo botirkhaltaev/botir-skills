@@ -15,6 +15,8 @@ Use this skill when running work in parallel across containers, using fan-out pa
 - Streaming results from remote generators
 - Configuring retries for transient failures
 - Processing large datasets in parallel
+- Building job queues for async processing
+- Dataset ingestion pipelines
 
 ## Execution Patterns
 
@@ -152,6 +154,62 @@ def pipeline():
     results = list(step2.map(preprocessed))
 ```
 
+## Job Queue Pattern
+
+Use `modal.Queue` + `modal.Function.spawn()` for async job processing:
+
+```python
+import modal
+
+app = modal.App()
+job_queue = modal.Queue.from_name("jobs", create_if_missing=True)
+results = modal.Dict.from_name("results", create_if_missing=True)
+
+@app.function()
+def process_job(job_id: str, data: dict):
+    result = heavy_computation(data)
+    results[job_id] = result
+    return result
+
+# Submit from a web endpoint
+@app.function()
+@modal.fastapi_endpoint(method="POST")
+def submit(data: dict):
+    import uuid
+    job_id = str(uuid.uuid4())
+    process_job.spawn(job_id, data)
+    return {"job_id": job_id}
+```
+
+### Dataset Ingestion
+
+For large-scale data processing:
+
+```python
+@app.function()
+def process_shard(shard_path: str):
+    import pyarrow.parquet as pq
+    table = pq.read_table(shard_path)
+    return transform(table)
+
+@app.local_entrypoint()
+def ingest():
+    shard_paths = list_s3_shards("s3://bucket/data/")
+    results = list(process_shard.map(shard_paths))
+```
+
+Use `order_outputs=False` and `return_exceptions=True` for resilient ingestion.
+
+## Timeouts
+
+```python
+@app.function(timeout=600)   # max 10 min per invocation
+def slow_task():
+    ...
+```
+
+Default timeout: 300s (5 min). Max: 86,400s (24h). Container-level timeout kills the process.
+
 ## Symptom Triage
 
 ### ".map() is slow to start"
@@ -167,6 +225,10 @@ def pipeline():
 - Ensure you call `handle.get()` to retrieve the result
 - Check if the Function errored (exceptions are raised on `.get()`)
 
+### "Function times out"
+- Increase `timeout` parameter
+- Check if work is I/O-bound (consider async or concurrent inputs)
+
 ## Reference Map
 
 - `references/map-starmap.md` — parallel batch execution, ordering, error handling
@@ -181,3 +243,5 @@ def pipeline():
 - Remote exceptions are re-raised on the caller side
 - Retries apply per-input, not per-container
 - Generator Functions must `yield`, not `return` collections
+- Default timeout is 5 min — always set explicitly for long-running jobs
+- Use `return_exceptions=True` in `.map()` for resilient batch processing

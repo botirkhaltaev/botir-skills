@@ -1,11 +1,11 @@
 ---
 name: modal-scaling-performance
-description: Autoscaling, cold start optimization, concurrent inputs, and dynamic batching on Modal. Use when tuning container scaling behavior, reducing latency, increasing throughput, or optimizing cost.
+description: Autoscaling, cold start optimization, memory snapshots, concurrent inputs, dynamic batching, and high-performance LLM inference on Modal. Use when tuning scaling, reducing latency, increasing throughput, or optimizing cost.
 ---
 
 # Modal Scaling and Performance
 
-Use this skill when tuning autoscaler behavior, reducing cold start latency, configuring concurrency, or enabling dynamic batching.
+Use this skill when tuning autoscaler behavior, reducing cold start latency, configuring concurrency, enabling dynamic batching, or using memory snapshots for faster starts.
 
 ## When to Use This Skill
 
@@ -14,6 +14,9 @@ Use this skill when tuning autoscaler behavior, reducing cold start latency, con
 - Configuring container scaling limits
 - Enabling concurrent input processing per container
 - Using dynamic batching for inference workloads
+- Using memory snapshots for sub-second cold starts
+- High-performance LLM inference optimization
+- Dynamic function configuration at runtime
 - Understanding Modal's autoscaler behavior
 
 ## Autoscaler Basics
@@ -111,10 +114,94 @@ class Model:
 
 Individual callers send one input; Modal collects them into batches.
 
+## Memory Snapshots
+
+Skip initialization work on most container boots — 3-10x faster cold starts:
+
+```python
+@app.cls(enable_memory_snapshot=True)
+class Model:
+    @modal.enter(snap=True)
+    def load(self):
+        self.model = load_model()  # captured in snapshot
+
+    @modal.enter()
+    def post_snapshot(self):
+        ...  # runs after snapshot restore (not captured)
+```
+
+Enable with `enable_memory_snapshot=True` on deployed apps (`modal deploy`).
+
+### GPU Memory Snapshots (Alpha)
+
+Also capture GPU state for even faster GPU cold starts:
+
+```python
+@app.cls(
+    gpu="h100",
+    enable_memory_snapshot=True,
+    experimental_options={"enable_gpu_snapshot": True},
+)
+class Llm:
+    @modal.enter(snap=True)
+    def init(self):
+        self.pipeline = pipeline(model="Qwen/Qwen3-1.7B", device_map="cuda")
+        # Warmup recommended — run sample inference to capture compiled state
+        self.pipeline([{"role": "user", "content": "warmup"}])
+```
+
+### Caveats
+
+- Memory snapshots are worker-type-specific (6 snapshots for CPU, 2-3 for specific GPU)
+- Randomness is frozen in snapshots — re-seed after restore if needed
+- GPU snapshots have driver compatibility limits; review docs before using
+
+## Dynamic Function Configuration
+
+Change compute resources per call at runtime:
+
+```python
+# Change GPU for a specific invocation
+result = f.with_options(gpu="H100").remote(data)
+
+# Dynamic concurrency
+concurrent_f = f.with_concurrency(max_inputs=32)
+
+# Compose options
+concurrent_f.with_options(gpu="H100").remote(...)
+```
+
+Each distinct configuration gets its own autoscaling container pool. Avoid too many fine-grained configs.
+
+## High-Performance LLM Inference
+
+### Throughput optimization (batch jobs)
+
+- Use vLLM for best throughput (continuous batching)
+- FP8 quantization on Hopper+ GPUs (not FP4)
+- Single-GPU-per-replica for simplicity when model fits
+- Use `.spawn_map` + `--detach` for fire-and-forget batch jobs
+- Store results in Volumes or external databases
+
+### Latency optimization (chatbots)
+
+- Minimize TTFT (time-to-first-token) and TPOT (time-per-output-token)
+- Use streaming responses to improve perceived latency
+- Speculative decoding for faster generation
+- Smaller quantized models for memory-bound decode
+- `min_containers` to avoid cold start on first request
+
+### Cold start optimization (bursty traffic)
+
+- Memory snapshots (`enable_memory_snapshot=True`) for fast container starts
+- GPU memory snapshots for GPU-heavy initialization
+- Model weights on Volumes (not downloaded at boot)
+- `min_containers` + `buffer_containers` for warm capacity
+
 ## Symptom Triage
 
 ### "First request is slow, subsequent ones are fast"
-- Cold start problem; use `min_containers` or `scaledown_window`
+- Cold start problem; use `min_containers`, `scaledown_window`, or memory snapshots
 - Move model loading to `@modal.enter()` or build-time
 
 ### "Throughput is low for I/O-bound work"
@@ -124,6 +211,11 @@ Individual callers send one input; Modal collects them into batches.
 ### "GPU underutilized"
 - Use `@modal.batched` to accumulate inputs into efficient batches
 - Increase `max_batch_size` for better GPU utilization
+
+### "Cold start still slow after optimization"
+- Enable memory snapshots (`enable_memory_snapshot=True`)
+- For GPU: also enable GPU memory snapshots
+- Pre-warm with sample inference in `@modal.enter(snap=True)`
 
 ## Reference Map
 
@@ -138,4 +230,7 @@ Individual callers send one input; Modal collects them into batches.
 - Higher `scaledown_window` keeps containers warm longer but costs more
 - `@modal.concurrent` is for I/O-bound work; CPU/GPU-bound work won't benefit
 - `@modal.batched` function must accept and return lists
+- Memory snapshots only work with `modal deploy` (not `modal run`)
+- GPU memory snapshots are Alpha — test compatibility before production use
+- `with_options()` creates separate container pools — don't create too many variants
 - Tune `target_inputs` and `buffer_containers` based on traffic patterns

@@ -16,6 +16,8 @@ Use this skill when building, running, or deploying Modal applications from scra
 - Managing Modal environments (dev/staging/prod)
 - Understanding the App/Function/container relationship
 - Working with the Modal CLI or Python client
+- Using async Modal APIs
+- Structuring Modal projects
 
 ## Core Concepts
 
@@ -88,6 +90,63 @@ modal deploy --env production script.py
 
 Set default: `modal config set-environment staging`
 
+## Async API
+
+All Modal methods have async counterparts via `.aio` suffix:
+
+```python
+# Sync
+result = f.remote(arg)
+
+# Async
+result = await f.remote.aio(arg)
+
+# Async volumes
+await vol.read_file.aio("/path")
+```
+
+Async functions run concurrent inputs as asyncio tasks (not threads). Sync functions use threading.
+
+## Global Variables
+
+Container-scope globals persist across invocations. Use `modal.is_local()` for conditional init:
+
+```python
+if modal.is_local():
+    weights = None  # don't download locally
+else:
+    weights = download_weights()
+```
+
+## Project Structure
+
+Recommended layout:
+```
+my-modal-project/
+├── my_module/
+│   ├── __init__.py
+│   ├── app.py       # modal.App() and function definitions
+│   └── utils.py
+├── pyproject.toml
+└── .modal/
+    └── environment   # default environment name
+```
+
+Deploy with: `modal deploy -m my_module.app`
+
+Key rules:
+- `include_source=True` (default) adds files reachable from entrypoint to container
+- Use `modal.Mount` to add non-importable files explicitly
+- Set `MODAL_ENVIRONMENT` env var or `.modal/environment` file for default environment
+
+## Developing with LLMs
+
+When using AI assistants to write Modal code:
+- Install `modal` locally for type checking
+- Provide Modal Python SDK stubs for autocomplete
+- Use `modal run` for rapid iteration (not full deployments)
+- Use `modal serve` for web endpoint development with live reload
+
 ## Symptom Triage
 
 ### "modal run does nothing"
@@ -102,6 +161,10 @@ Set default: `modal config set-environment staging`
 - Use `modal.enable_output()` context manager for programmatic runs
 - Check the Modal dashboard for deployed app logs
 
+### "Import error: module not found in container"
+- Ensure `include_source=True` (default) and file is importable from entrypoint
+- Or add explicit `modal.Mount.from_local_dir()` in image definition
+
 ## Reference Map
 
 - `references/apps-and-functions.md` — App/Function lifecycle, naming, entrypoints
@@ -115,3 +178,5 @@ Set default: `modal config set-environment staging`
 - `modal.Stub` is removed since Modal 1.0; use `modal.App`
 - Protect `app.run()` in `if __name__ == "__main__"` blocks to avoid running in containers
 - Use `--detach` for long-running ephemeral jobs where the client may disconnect
+- Use `modal.is_local()` to guard local-only code paths
+- Use `.aio` suffix for async operations, not raw `await` on sync methods

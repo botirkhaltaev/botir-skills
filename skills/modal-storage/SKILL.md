@@ -92,6 +92,34 @@ def read_data():
 
 Supports AWS S3, Google Cloud Storage, and Cloudflare R2.
 
+## S3 Gateway Endpoints
+
+When running on AWS, Modal automatically uses S3 Gateway endpoints for zero-cost data transfer. No configuration needed.
+
+**Best practices:**
+- Use region-specific or global S3 endpoints (not cross-region)
+- Schedule Modal Functions in the same region as your S3 bucket with `region=`
+- Inter-region traffic will incur charges
+
+## Data Transfer Patterns
+
+### Upload local data to Volume
+
+```python
+volume = modal.Volume.from_name("my-data", create_if_missing=True)
+
+@app.function(volumes={"/data": volume})
+def upload(local_path: str):
+    import shutil
+    shutil.copy(local_path, "/data/")
+```
+
+### Batch upload via CLI
+
+```bash
+modal volume put my-vol ./local-dir/ /remote-dir/ --force
+```
+
 ## Symptom Triage
 
 ### "FileNotFoundError on Volume"
